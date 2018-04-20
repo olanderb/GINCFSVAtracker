@@ -1,0 +1,102 @@
+---
+title: "Rapport de suivi quotidien de CFSVA"
+author: "Bill Olander, RBD"
+date: '`r format(Sys.time(), "%B  %d %Y %X ")`'
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(devtools)
+library(ona)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(readxl)
+library(ifultools)
+library(readr)
+library(gmodels)
+
+
+AGVSAN_MENAGE <- read.csv("./AGVSAN_MENAGE.csv")
+
+prefecturesampling <- read.csv("./prefecturesampling.csv")
+
+#total submissions
+submissionsv <- AGVSAN_MENAGE %>% summarize(nombredesoumissions = n())
+
+#table of menage submissions by date
+submissionsdate <- AGVSAN_MENAGE %>% group_by(today) %>% summarize(nombredesoumissions = n()) %>% arrange(today)
+
+#table of menage submissions by prefecture 
+submissionsprefecture <- AGVSAN_MENAGE %>% group_by(prefecture) %>% summarize(nombredesoumissions = n()) %>% arrange(nombredesoumissions)
+
+
+#table of menage submissions by prefecture compared to sample targets
+nombredesoumissionsvssamplepref <- prefecturesampling %>% left_join(submissionsprefecture, by = "prefecture")
+
+#table of menage submissions by prefecture 
+submissionsteam <- AGVSAN_MENAGE %>% group_by(equipe) %>% summarize(nombredesoumissions = n()) %>% arrange(nombredesoumissions)
+submissionsteam
+
+#FCS
+#table of mean, median, sd
+FCSbyteam <- AGVSAN_MENAGE %>% group_by(equipe) %>% summarise(mean = ci(consent_grp.SCA.FCS)[1], lowCI = ci(consent_grp.SCA.FCS)[2], hiCI = ci(consent_grp.SCA.FCS)[3], sd = ci(consent_grp.SCA.FCS)[4]) %>% arrange(mean)
+#boxplot - ok but how can I make this readable way to squashed 
+qplot(factor(equipe), consent_grp.SCA.FCS, data = AGVSAN_MENAGE, geom = "boxplot", xlab = "team", ylab = "FCS" )
+#trying a forest plot from https://gist.github.com/webbedfeet/7031404fc3f500f6258e - hey it works but how do i order y by mean values?
+credplot.gg <- function(d){
+  # d is a data frame with 4 columns
+  # d$x gives variable names
+  # d$y gives center point
+  # d$ylo gives lower limits
+  # d$yhi gives upper limits
+  require(ggplot2)
+  p <- ggplot(FCSbyteam, aes(x=equipe, y=mean, ymin=lowCI, ymax=hiCI))+
+    geom_pointrange()+
+    geom_hline(yintercept = 1, linetype=2)+
+    coord_flip()+
+    xlab('Supervisor')+
+    ylab('mean FCS and 95% CI')
+  return(p)
+}
+
+
+
+
+```
+
+
+Ceci est un rapport quotidien auto-généré pour suivre les progrès de l'enquête CFSVA en Guinée.
+
+*Nombre total de soumissions*
+```{r echo=FALSE}
+kable(submissionsv)
+```
+
+
+
+*Le nombre de soumissions téléchargées par date* 
+```{r echo=FALSE}
+kable(submissionsdate)
+```
+
+*Nombre de soumissions téléchargées par équipe*
+```{r echo=FALSE}
+kable(submissionsteam)
+```
+
+*Nombre de soumissions par rapport à la cible d'échantillonnage par préfecture*
+```{r echo=FALSE}
+kable(nombredesoumissionsvssamplepref)
+```
+
+*Forest plot of Food Consumption Score by team*
+```{r echo=FALSE}
+credplot.gg(d)
+```
