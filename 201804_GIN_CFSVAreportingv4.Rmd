@@ -1,3 +1,6 @@
+
+![](./brand.gif)
+
 ---
 title: "Rapport de suivi quotidien de CFSVA"
 author: "Bill Olander, RBD"
@@ -12,7 +15,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(devtools)
 library(dplyr)
 library(ggplot2)
-library(ona)
 library(knitr)
 library(readxl)
 library(ifultools)
@@ -38,6 +40,9 @@ submissionsprefecture <- AGVSAN_MENAGE %>% dplyr::group_by(prefecture) %>% dplyr
 
 ## table of menage submissions by prefecture compared to sample targets
 nombredesoumissionsvssamplepref <- prefecturesampling %>% left_join(submissionsprefecture, by = "prefecture") %>% select(-X1)
+nombredesoumissionsvssamplepref2 <- nombredesoumissionsvssamplepref %>% filter(prefecture != "Conakry") %>% group_by(prefecture) %>% dplyr::summarize("percentcomplet" = (nombredesoumissions / `Nombre de menages a enqueter`) * 100) %>% mutate(percentcomplet = round(percentcomplet, 0))
+nombredesoumissionsvssamplepref3 <- nombredesoumissionsvssamplepref %>% left_join(nombredesoumissionsvssamplepref2, by = "prefecture") 
+
 
 ## table of menage submissions by prefecture 
 submissionsteam <- AGVSAN_MENAGE %>% group_by(equipe) %>% dplyr::summarize(nombredesoumissions = n()) %>% arrange(nombredesoumissions)
@@ -72,12 +77,11 @@ credplot_gg <- function(d) {
 
 Ceci est un rapport quotidien auto-généré pour suivre les progrès de l'enquête CFSVA en Guinée.
 
-## Nombre total de soumissions
+### Nombre total de soumissions
 
 ```{r echo=FALSE}
 kable(submissionsv)
 ```
-
 
 
 ### Le nombre de soumissions téléchargées par date
@@ -95,10 +99,10 @@ kable(submissionsteam)
 ### Nombre de soumissions par rapport à la cible d'échantillonnage par préfecture
 
 ```{r echo=FALSE}
-kable(nombredesoumissionsvssamplepref)
+kable(nombredesoumissionsvssamplepref3)
 ```
 
 ### Forest plot of Food Consumption Score by team
-```{r echo=FALSE, fig.width = 12, fig.height = 8}
+```{r echo=FALSE, fig.width = 12, fig.height = 8, warning=FALSE}
 credplot_gg(FCSbyteam)
 ```
