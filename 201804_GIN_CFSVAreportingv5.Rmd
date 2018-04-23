@@ -1,0 +1,156 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+![](./brand.gif)
+
+---
+title: "Rapport de suivi quotidien de CFSVA"
+author: "Bill Olander, RBD"
+date: '`r format(Sys.time(), "%B  %d %Y %X ")`'
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(devtools)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(readxl)
+library(ifultools)
+library(readr)
+library(gmodels)
+library(hrbrthemes) ## nice ggplot2 theme
+
+## readr better and good to specify locale sometimes particularly if you share with Linux/Mac user
+## because some accent don't show up nicely
+AGVSAN_MENAGE <- read_csv("./AGVSAN_MENAGE.csv", locale = locale(encoding = "ISO-8859-1"))
+prefecturesampling <- read_csv("./prefecturesampling.csv", locale = locale(encoding = "ISO-8859-1"))
+
+## total submissions
+submissionsv <- AGVSAN_MENAGE %>% dplyr::summarize(nombredesoumissions = n())
+
+
+## table of menage submissions by date
+submissionsdate <- AGVSAN_MENAGE %>% group_by(today) %>% dplyr::summarize(nombredesoumissions = n()) %>% arrange(today)
+
+## table of menage submissions by prefecture 
+submissionsprefecture <- AGVSAN_MENAGE %>% dplyr::group_by(prefecture) %>% dplyr::summarize(nombredesoumissions = n()) %>% arrange(nombredesoumissions)
+
+
+## table of menage submissions by prefecture compared to sample targets
+nombredesoumissionsvssamplepref <- prefecturesampling %>% left_join(submissionsprefecture, by = "prefecture") %>% select(-X1)
+nombredesoumissionsvssamplepref2 <- nombredesoumissionsvssamplepref %>% filter(prefecture != "Conakry") %>% group_by(prefecture) %>% dplyr::summarize("percentcomplet" = (nombredesoumissions / `Nombre de menages a enqueter`) * 100) %>% mutate(percentcomplet = round(percentcomplet, 0))
+nombredesoumissionsvssamplepref3 <- nombredesoumissionsvssamplepref %>% left_join(nombredesoumissionsvssamplepref2, by = "prefecture") 
+
+
+## table of menage submissions by prefecture 
+submissionsteam <- AGVSAN_MENAGE %>% group_by(equipe) %>% dplyr::summarize(nombredesoumissions = n()) %>% arrange(nombredesoumissions)
+
+#table of menage submissions by zd
+submissionszd <- AGVSAN_MENAGE %>% group_by(Section0.geo0.S0.08) %>% summarize(nombredesoumissions = n()) %>% arrange(nombredesoumissions)
+
+
+#FCS
+#table of mean, median, sd
+FCSbyteam <- AGVSAN_MENAGE %>% group_by(equipe) %>% dplyr::summarize(mean = ci(consent_grp.SCA.FCS)[1], lowCI = ci(consent_grp.SCA.FCS)[2], hiCI = ci(consent_grp.SCA.FCS)[3], sd = ci(consent_grp.SCA.FCS)[4]) %>% arrange(mean)
+#boxplot - ok but how can I make this readable way to squashed 
+## qplot(factor(equipe), consent_grp.SCA.FCS, data = AGVSAN_MENAGE, geom = "boxplot", xlab = "team", ylab = "FCS" )
+
+## trying a forest plot from https://gist.github.com/webbedfeet/7031404fc3f500f6258e - hey it works but how do i order y by mean values?
+credplot_gg <- function(d) {
+  # d is a data frame with 4 columns
+  # d$x gives variable names
+  # d$y gives center point
+  # d$ylo gives lower limits
+  # d$yhi gives upper limits
+  require(ggplot2)
+    d %>%
+    mutate(avg_fcs = mean(mean, na.rm = TRUE)) %>%
+    filter(!is.na(mean)) %>% ## remove team without values
+    ggplot(aes(x = reorder(equipe, mean), y = mean, ymin = lowCI, ymax = hiCI)) +
+    geom_pointrange() +
+    geom_hline(aes(yintercept = avg_fcs), linetype = 2) +
+    coord_flip() +
+    xlab('Supervisor') +
+    ylab('mean FCS and 95% CI') +
+    theme_ipsum()
+}
+
+#rCSI
+#table of mean, median, sd
+rCSIbyteam <- AGVSAN_MENAGE %>% group_by(equipe) %>% dplyr::summarize(mean = ci(consent_grp.Section12.rcsi)[1], lowCI = ci(consent_grp.Section12.rcsi)[2], hiCI = ci(consent_grp.Section12.rcsi)[3], sd = ci(consent_grp.Section12.rcsi)[4]) %>% arrange(mean)
+#boxplot - ok but how can I make this readable way to squashed 
+## qplot(factor(equipe), consent_grp.Section12.rcsi, data = AGVSAN_MENAGE, geom = "boxplot", xlab = "team", ylab = "rCSI" )
+
+## trying a forest plot from https://gist.github.com/webbedfeet/7031404fc3f500f6258e - hey it works but how do i order y by mean values?
+credplot_gg <- function(d) {
+  # d is a data frame with 4 columns
+  # d$x gives variable names
+  # d$y gives center point
+  # d$ylo gives lower limits
+  # d$yhi gives upper limits
+  require(ggplot2)
+  d %>%
+    mutate(avg_rCSI = mean(mean, na.rm = TRUE)) %>%
+    filter(!is.na(mean)) %>% ## remove team without values
+    ggplot(aes(x = reorder(equipe, mean), y = mean, ymin = lowCI, ymax = hiCI)) +
+    geom_pointrange() +
+    geom_hline(aes(yintercept = avg_rCSI), linetype = 2) +
+    coord_flip() +
+    xlab('Supervisor') +
+    ylab('mean rCSI and 95% CI') +
+    theme_ipsum()
+}
+
+```
+
+Ceci est un rapport quotidien auto-généré pour suivre les progrès de l'enquête CFSVA en Guinée.
+
+### Nombre total de soumissions
+
+```{r echo=FALSE}
+kable(submissionsv)
+```
+
+
+### Le nombre de soumissions téléchargées par date
+
+```{r echo=FALSE}
+kable(submissionsdate)
+```
+
+### Nombre de soumissions téléchargées par équipe
+
+```{r echo=FALSE}
+kable(submissionsteam)
+```
+
+### Nombre de soumissions par rapport à la cible d'échantillonnage par préfecture
+
+```{r echo=FALSE}
+kable(nombredesoumissionsvssamplepref3)
+```
+
+### Nombre de soumissions par ZD
+
+```{r echo=FALSE}
+kable(submissionszd)
+```
+
+
+### Forest plot of Food Consumption Score by team
+```{r echo=FALSE, fig.width = 12, fig.height = 8, warning=FALSE}
+credplot_gg(FCSbyteam)
+```
+
+### Forest plot of rCSI by team
+```{r echo=FALSE, fig.width = 12, fig.height = 8, warning=FALSE}
+credplot_gg(rCSIbyteam)
+```
+
