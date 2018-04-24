@@ -191,5 +191,5 @@ credplot_gg(rCSIbyteam)
 
 ### Forest plot of food expenditures by team
 ```{r echo=FALSE, fig.width = 12, fig.height = 8, warning=FALSE}
-credplot_gg(rCSIbyteam)
+credplot_gg(expbyteamnew)
 ```
